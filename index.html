@@ -1,0 +1,2127 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEFAS Fon X-Ray</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@2.3.0/dist/chartjs-chart-treemap.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #232740;
+      --border: #2e3354;
+      --accent: #6c63ff;
+      --accent2: #48cfad;
+      --text: #e2e8f0;
+      --muted: #8892b0;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* Header */
+    .header { text-align: center; margin-bottom: 36px; }
+    .header h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; }
+    .header h1 span { color: var(--accent); }
+    .header p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    /* Search */
+    .search-wrap { position: relative; }
+    .search-input {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--muted); }
+
+    .dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0; right: 0;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    .dropdown.open { display: block; }
+    .dropdown-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+    .dropdown-item:hover { background: var(--border); }
+    .dropdown-item .code {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .dropdown-item .name { font-size: 0.88rem; color: var(--text); }
+    .dropdown-item .type { font-size: 0.75rem; color: var(--muted); margin-left: auto; flex-shrink: 0; }
+    .dropdown-empty { padding: 16px; color: var(--muted); text-align: center; font-size: 0.88rem; }
+
+    /* Fund list */
+    .fund-list { display: flex; flex-direction: column; gap: 10px; }
+    .fund-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .fund-row .f-code {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .fund-row .f-name {
+      flex: 1;
+      font-size: 0.85rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .fund-row .f-weight {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .weight-input {
+      width: 90px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      text-align: right;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .weight-input:focus { border-color: var(--accent); }
+    .weight-unit { color: var(--muted); font-size: 0.85rem; }
+
+    /* Mode toggle */
+    .mode-toggle {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-left: auto;
+    }
+    .mode-btn {
+      padding: 5px 14px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: none;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .card-header .card-title { margin-bottom: 0; }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+      line-height: 1;
+    }
+    .remove-btn:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+    .empty-hint {
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+      padding: 24px 0;
+    }
+
+    /* Sum bar */
+    .sum-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    .sum-label { color: var(--muted); }
+    .sum-value { font-weight: 700; font-size: 1rem; }
+    .sum-ok { color: var(--accent2); }
+    .sum-warn { color: var(--warning); }
+    .sum-bar-track {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .sum-bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+    }
+
+    /* Xray results */
+    .xray-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 600px) { .xray-grid { grid-template-columns: 1fr; } }
+
+    .chart-wrap { position: relative; max-height: 280px; display: flex; align-items: center; justify-content: center; }
+
+    .asset-table { width: 100%; border-collapse: collapse; }
+    .asset-table th {
+      text-align: left;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .asset-table th:last-child { text-align: right; }
+    .asset-table td {
+      padding: 8px 0;
+      font-size: 0.88rem;
+      border-bottom: 1px solid rgba(46,51,84,0.5);
+      vertical-align: middle;
+    }
+    .asset-table td:last-child { text-align: right; font-weight: 600; }
+    .asset-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+    .asset-name-cell { display: flex; align-items: center; }
+    .bar-mini {
+      height: 6px;
+      border-radius: 3px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-left: 8px;
+    }
+
+    .no-data {
+      color: var(--muted);
+      font-size: 0.88rem;
+      text-align: center;
+      padding: 32px 0;
+    }
+
+    /* Fund type badge */
+    .type-badge {
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      background: rgba(108,99,255,0.2);
+      color: #a5a0ff;
+    }
+
+    /* Risk badge */
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      color: #fff;
+    }
+
+    /* Portfolio risk score bar */
+    .risk-score-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+    }
+    .risk-score-label { font-size: 0.8rem; color: var(--muted); flex-shrink: 0; }
+    .risk-track {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .risk-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s, background 0.4s;
+    }
+    .risk-score-val {
+      font-size: 0.9rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      min-width: 32px;
+      text-align: right;
+    }
+    .risk-settings-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px 12px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      flex-shrink: 0;
+    }
+    .risk-settings-btn:hover { color: var(--text); border-color: var(--accent); }
+    .risk-settings-btn.modified { color: var(--warning); border-color: var(--warning); }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 680px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 1rem; font-weight: 700; }
+    .modal-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+    .modal-header-actions { display: flex; gap: 8px; align-items: center; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--danger); }
+    .modal-reset-all {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .modal-reset-all:hover { color: var(--warning); border-color: var(--warning); }
+    .modal-body {
+      overflow-y: auto;
+      padding: 16px 20px;
+      flex: 1;
+    }
+
+    /* Risk group in modal */
+    .risk-group { margin-bottom: 20px; }
+    .risk-group-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .risk-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(46,51,84,0.4);
+    }
+    .risk-row:last-child { border-bottom: none; }
+    .risk-row-name { flex: 1; font-size: 0.83rem; color: var(--text); }
+    .risk-row-key { font-size: 0.72rem; color: var(--muted); font-family: monospace; min-width: 48px; }
+    .risk-pills { display: flex; gap: 3px; }
+    .risk-pill {
+      width: 26px; height: 26px;
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .risk-pill:hover { border-color: var(--border); color: var(--text); }
+    .risk-pill.active { color: #fff; border-color: transparent; }
+    .risk-pill.modified-mark { box-shadow: 0 0 0 2px var(--warning); }
+    .risk-row-reset {
+      background: none;
+      border: none;
+      color: var(--border);
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .risk-row-reset:hover { color: var(--warning); }
+    .risk-row-reset.visible { color: var(--muted); }
+
+    /* OCR Import */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 32px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--accent); background: rgba(108,99,255,0.05); }
+    .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .drop-zone-icon { font-size: 2rem; margin-bottom: 8px; }
+    .drop-zone-text { color: var(--muted); font-size: 0.88rem; }
+    .drop-zone-text strong { color: var(--text); }
+    .drop-zone-hint { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+
+    .ocr-preview-wrap { position: relative; margin-top: 14px; }
+    .ocr-preview-wrap img { width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border); }
+    .ocr-preview-clear {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(15,17,23,0.8); border: none; color: var(--muted);
+      border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ocr-preview-clear:hover { color: var(--danger); }
+
+    .ocr-progress {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin-top: 14px;
+    }
+    .ocr-progress-text { font-size: 0.83rem; color: var(--muted); margin-bottom: 8px; }
+    .ocr-progress-track { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .ocr-progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+
+    .ocr-results { margin-top: 14px; }
+    .ocr-results-title {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--muted); margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .ocr-result-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px; border-radius: 6px;
+      background: var(--surface2); margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+    .ocr-result-row.no-match { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.05); }
+    .ocr-result-row input[type=checkbox] { flex-shrink: 0; accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+    .ocr-result-code { font-size: 0.72rem; font-weight: 700; background: var(--accent); color: #fff; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+    .ocr-result-code.unmatched { background: var(--danger); }
+    .ocr-result-name { flex: 1; font-size: 0.8rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ocr-result-name.unmatched { color: var(--muted); font-style: italic; }
+    .ocr-result-val {
+      width: 80px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 5px; padding: 4px 8px; color: var(--text); font-size: 0.83rem;
+      text-align: right; outline: none; flex-shrink: 0;
+    }
+    .ocr-result-val:focus { border-color: var(--accent); }
+    .ocr-result-unit { font-size: 0.78rem; color: var(--muted); flex-shrink: 0; }
+    .ocr-result-conf { font-size: 0.7rem; color: var(--accent2); flex-shrink: 0; }
+    .ocr-result-conf.low { color: var(--warning); }
+
+    .ocr-add-btn {
+      width: 100%; margin-top: 12px; padding: 11px;
+      background: var(--accent); border: none; border-radius: 8px;
+      color: #fff; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .ocr-add-btn:hover { opacity: 0.85; }
+    .ocr-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .import-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 14px; color: var(--muted);
+      font-size: 0.82rem; font-weight: 600; cursor: pointer;
+      transition: color 0.15s, border-color 0.15s; white-space: nowrap;
+    }
+    .import-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* Save area */
+    .save-area {
+      display: none;
+      margin-bottom: 14px;
+    }
+    .save-area-inner {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .save-area-inner .search-input {
+      flex: 1;
+      padding: 8px 12px;
+      font-size: 0.88rem;
+    }
+    .save-confirm-btn {
+      padding: 8px 16px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+      flex-shrink: 0;
+    }
+    .save-confirm-btn:hover { opacity: 0.85; }
+
+    /* Saved portfolio rows */
+    .saved-portfolio-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .saved-portfolio-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .saved-portfolio-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+    .load-btn {
+      padding: 5px 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      white-space: nowrap;
+    }
+    .load-btn:hover { opacity: 0.85; }
+    .delete-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      padding: 5px 8px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+      line-height: 1;
+    }
+    .delete-btn:hover { color: var(--danger); border-color: var(--danger); }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>TEFAS Fon <span>X-Ray</span></h1>
+    <p>Fonlarınızı seçin, oranlarını girin — portföy dağılımınızı görün</p>
+  </div>
+
+  <!-- Fund Selector -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Fon Ekle</div>
+      <button class="import-btn" id="btnImport" title="Deneysel — OCR sonuçları hatalı olabilir">📷 Görüntüden İçe Aktar <span style="font-size:0.65rem;opacity:0.7">⚗</span></button>
+    </div>
+    <div class="search-wrap">
+      <input
+        id="searchInput"
+        class="search-input"
+        type="text"
+        placeholder="Fon kodu veya adı ile ara (ör: AAK, ATA PORTFÖY...)"
+        autocomplete="off"
+      />
+      <div id="dropdown" class="dropdown"></div>
+    </div>
+  </div>
+
+  <!-- Portfolio -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Portföyüm</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="import-btn" id="btnSavePortfolio">💾 Kaydet</button>
+        <button class="import-btn" id="btnLoadPortfolio">📂 Portföyler</button>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btnPct">% Oran</button>
+          <button class="mode-btn" id="btnTl">₺ Tutar</button>
+        </div>
+      </div>
+    </div>
+    <div class="save-area" id="saveArea">
+      <div class="save-area-inner">
+        <input id="portfolioNameInput" class="search-input" type="text" placeholder="Portföy adı..." autocomplete="off" />
+        <button class="save-confirm-btn" id="btnConfirmSave">Kaydet</button>
+        <button class="remove-btn" id="btnCancelSave" title="İptal">✕</button>
+      </div>
+    </div>
+    <div id="fundList" class="fund-list">
+      <div class="empty-hint">Henüz fon eklenmedi. Yukarıdan fon arayıp ekleyin.</div>
+    </div>
+    <div class="sum-row" id="sumRow" style="display:none">
+      <span id="sumLabel" class="sum-label">Toplam Oran</span>
+      <span id="sumValue" class="sum-value">%0</span>
+    </div>
+    <div class="sum-bar-track" id="sumBarTrack" style="display:none">
+      <div id="sumBarFill" class="sum-bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- X-Ray Results -->
+  <div class="card" id="xrayCard">
+    <div class="card-header">
+      <div class="card-title">Portföy X-Ray</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="risk-settings-btn" id="btnRiskSettings">⚙ Risk Ayarları</button>
+        <div class="mode-toggle">
+          <button class="mode-btn active" id="btnDoughnut">◉ Dilim</button>
+          <button class="mode-btn" id="btnTreemap">⊞ Kare</button>
+        </div>
+      </div>
+    </div>
+    <div id="xrayContent" class="no-data">Fon ekleyip oran girdikçe sonuçlar burada görünecek.</div>
+  </div>
+
+</div>
+
+<!-- OCR Import Modal -->
+<div class="modal-overlay" id="ocrModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Görüntüden İçe Aktar</div>
+        <div class="modal-subtitle">Ekran görüntüsü yükleyin veya yapıştırın (Ctrl+V). Tesseract.js ile okunur.</div>
+        <div style="margin-top:8px;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:6px;padding:7px 10px;font-size:0.78rem;color:var(--warning);">
+          ⚗ Deneysel özellik — OCR sonuçları hatalı olabilir. Portföye eklemeden önce değerleri kontrol edin.
+        </div>
+      </div>
+      <div class="modal-header-actions">
+        <button class="modal-close" id="btnCloseOcr">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="ocrModalBody">
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="ocrFileInput" accept="image/*" />
+        <div class="drop-zone-icon">🖼️</div>
+        <div class="drop-zone-text"><strong>Tıkla</strong> veya sürükle bırak</div>
+        <div class="drop-zone-hint">ya da Ctrl+V ile pano görüntüsü yapıştır</div>
+      </div>
+      <div id="ocrPreviewWrap" class="ocr-preview-wrap" style="display:none">
+        <img id="ocrPreviewImg" src="" alt="önizleme" />
+        <button class="ocr-preview-clear" id="ocrClearImg">✕</button>
+      </div>
+      <div id="ocrProgressWrap" class="ocr-progress" style="display:none">
+        <div class="ocr-progress-text" id="ocrProgressText">Hazırlanıyor...</div>
+        <div class="ocr-progress-track"><div class="ocr-progress-fill" id="ocrProgressFill" style="width:0%"></div></div>
+      </div>
+      <div id="ocrResults" class="ocr-results" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Load Portfolios Modal -->
+<div class="modal-overlay" id="loadModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Kaydedilmiş Portföyler</div>
+        <div class="modal-subtitle">Yüklemek istediğiniz portföyü seçin.</div>
+      </div>
+      <div class="modal-header-actions">
+        <button class="modal-close" id="btnCloseLoad">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="loadModalBody"></div>
+  </div>
+</div>
+
+<!-- Risk Settings Modal -->
+<div class="modal-overlay" id="riskModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Risk Skoru Ayarları</div>
+        <div class="modal-subtitle">Varsayılan değerlendirmelerimizi değiştirebilirsiniz. Değiştirilen satırlar işaretlenir.</div>
+      </div>
+      <div class="modal-header-actions">
+        <button class="modal-reset-all" id="btnResetAllRisk">Tümünü Sıfırla</button>
+        <button class="modal-close" id="btnCloseRisk">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="riskPanelBody"></div>
+  </div>
+</div>
+
+<script>
+// ─── Data ────────────────────────────────────────────────────────────────────
+let fundList = [];
+let allocations = {};
+let portfolio = []; // [{code, name, type, value}]
+let inputMode = 'pct'; // 'pct' | 'tl'
+
+// ─── Risk Scores ─────────────────────────────────────────────────────────────
+const ASSET_RISK_SCORES = {
+  TR:1,R:1,VMTL:1,KHTL:1,TPP:1,BPP:1,BTAA:1,BTAS:1,SB:1,
+  DT:2,HB:2,FB:2,KKSTL:2,
+  OST:3,OSKS:3,VDM:3,
+  VMD:4,KHD:4,KİBD:4,KBA:4,YBKB:4,KKSD:4,KKSYD:4,ACT:4,KM:4,KHAU:4,VMAU:4,KMKKS:4,KMKBA:4,KMBYF:4,
+  YBOSB:5,ÖKSYD:5,ÖSDB:5,GYY:5,GYKB:5,GAS:5,YYF:5,
+  HS:6,BYF:6,
+  YHS:7,YBYF:7,GSYY:7,GSYKB:7,VİNT:7,D:7,
+};
+
+let userRiskScores = { ...ASSET_RISK_SCORES };
+
+const RISK_COLORS = {
+  1:'#48cfad', 2:'#a3d977', 3:'#ffd166',
+  4:'#f7b731', 5:'#fd9644', 6:'#fc5c65', 7:'#eb3b5a'
+};
+const RISK_LABELS = {
+  1:'Çok Düşük', 2:'Düşük', 3:'Orta-Düşük',
+  4:'Orta', 5:'Orta-Yüksek', 6:'Yüksek', 7:'Çok Yüksek'
+};
+
+function getRiskColor(score) {
+  const s = Math.max(1, Math.min(7, Math.round(score)));
+  // interpolate between two closest colors for fractional scores
+  const lo = Math.floor(score), hi = Math.ceil(score);
+  if (lo === hi) return RISK_COLORS[lo] || '#8892b0';
+  return RISK_COLORS[lo] || '#8892b0';
+}
+
+function isRiskModified() {
+  return Object.keys(ASSET_RISK_SCORES).some(k => userRiskScores[k] !== ASSET_RISK_SCORES[k]);
+}
+
+// ─── Currency Classification ──────────────────────────────────────────────────
+// tl | fx | gold | mixed
+const ASSET_CURRENCY = {
+  HS:'tl', DT:'tl', HB:'tl', FB:'tl', OST:'tl', OSKS:'tl',
+  TR:'tl', R:'tl', VMTL:'tl', KHTL:'tl', TPP:'tl', BPP:'tl',
+  BTAA:'tl', BTAS:'tl', SB:'tl', KKSTL:'tl', VDM:'tl',
+  BYF:'tl', GYY:'tl', GYKB:'tl', GAS:'tl', GSYY:'tl', GSYKB:'tl',
+  VMD:'fx', KHD:'fx', KİBD:'fx', KBA:'fx', YBKB:'fx',
+  KKSD:'fx', KKSYD:'fx', YBOSB:'fx', ÖKSYD:'fx', ÖSDB:'fx',
+  YHS:'fx', YBYF:'fx', VİNT:'fx',
+  ACT:'gold', KM:'gold', KHAU:'gold', VMAU:'gold',
+  KMKKS:'gold', KMKBA:'gold', KMBYF:'gold',
+  YYF:'mixed', D:'mixed',
+};
+
+const CURRENCY_META = {
+  tl:    { label: 'TL',    color: '#45aaf2' },
+  fx:    { label: 'Döviz', color: '#fd9644' },
+  gold:  { label: 'Altın', color: '#f7b731' },
+  mixed: { label: 'Karma', color: '#8892b0' },
+};
+
+// ─── Asset Category Classification ───────────────────────────────────────────
+const ASSET_CATEGORY = {
+  // Para Piyasası
+  TR:'mm', R:'mm', VMTL:'mm', VMD:'mm', VMAU:'mm',
+  KHTL:'mm', KHD:'mm', KHAU:'mm',
+  TPP:'mm', BPP:'mm', BTAA:'mm', BTAS:'mm', SB:'mm',
+  // Sabit Getirili
+  DT:'fi', HB:'fi', FB:'fi',
+  OST:'fi', OSKS:'fi', VDM:'fi',
+  KKSTL:'fi', KKSD:'fi', KKSYD:'fi',
+  KİBD:'fi', KBA:'fi', YBKB:'fi',
+  YBOSB:'fi', ÖKSYD:'fi', ÖSDB:'fi',
+  KMKKS:'fi', KMKBA:'fi',
+  // Hisse Senedi
+  HS:'eq', YHS:'eq', BYF:'eq', YBYF:'eq',
+  // Altın / Emtia
+  ACT:'gold', KM:'gold', KMBYF:'gold',
+  // Gayrimenkul
+  GYY:'re', GYKB:'re', GAS:'re',
+  // Girişim Sermayesi
+  GSYY:'pe', GSYKB:'pe',
+  // Türev
+  VİNT:'deriv',
+  // Karma / Belirsiz
+  YYF:'mixed', D:'mixed',
+};
+
+const CATEGORY_META = {
+  mm:    { label: 'Para Piy.',   color: '#45aaf2' },
+  fi:    { label: 'Sabit Get.',  color: '#a3d977' },
+  eq:    { label: 'Hisse',       color: '#fc5c65' },
+  gold:  { label: 'Altın/Emtia', color: '#f7b731' },
+  re:    { label: 'Gayrimenkul', color: '#fd9644' },
+  pe:    { label: 'Girişim Ser.',color: '#a55eea' },
+  deriv: { label: 'Türev',       color: '#eb3b5a' },
+  mixed: { label: 'Karma',       color: '#8892b0' },
+};
+
+// ─── Diversification Score ────────────────────────────────────────────────────
+function shannonEntropy(weights) {
+  // weights: array of fractions (sum ~1), returns normalized 0-1
+  const n = weights.filter(w => w > 0).length;
+  if (n <= 1) return 0;
+  const maxH = Math.log2(n);
+  const H = weights.reduce((s, w) => w > 0 ? s - w * Math.log2(w) : s, 0);
+  return H / maxH;
+}
+
+function calcDiversificationScore(sorted, userRiskScores) {
+  if (!sorted.length) return null;
+
+  const total = sorted.reduce((s, [, v]) => s + v, 0);
+  const fracs = sorted.map(([, v]) => v / total);
+
+  // 1. Asset class concentration (HHI → effective N, cap at 12)
+  const hhi = fracs.reduce((s, f) => s + f * f, 0);
+  const effectiveN = 1 / hhi;
+  const assetScore = Math.min(effectiveN / 12, 1); // 12 effective classes = perfect
+
+  // 2. Currency distribution entropy (TL / FX / Gold — exclude 'mixed')
+  const currBuckets = { tl: 0, fx: 0, gold: 0 };
+  for (const [k, v] of sorted) {
+    const c = ASSET_CURRENCY[k];
+    if (c && c !== 'mixed') currBuckets[c] += v / total;
+  }
+  const currTotal = Object.values(currBuckets).reduce((a, b) => a + b, 0);
+  const currFracs = currTotal > 0
+    ? Object.values(currBuckets).map(v => v / currTotal)
+    : [1, 0, 0];
+  const currScore = shannonEntropy(currFracs);
+
+  // 3. Risk level distribution entropy (1-7)
+  const riskBuckets = {};
+  for (const [k, v] of sorted) {
+    const r = userRiskScores[k] ?? 4;
+    riskBuckets[r] = (riskBuckets[r] || 0) + v / total;
+  }
+  const riskFracs = Object.values(riskBuckets);
+  const riskScore = shannonEntropy(riskFracs);
+
+  // Composite: 50% asset, 30% currency, 20% risk
+  const composite = assetScore * 0.50 + currScore * 0.30 + riskScore * 0.20;
+  const score100 = Math.round(composite * 100);
+
+  return {
+    score: score100,
+    asset:  Math.round(assetScore  * 100),
+    curr:   Math.round(currScore   * 100),
+    risk:   Math.round(riskScore   * 100),
+    effectiveN: effectiveN.toFixed(1),
+  };
+}
+
+const DIVERS_LABEL = (s) =>
+  s >= 80 ? 'Çok İyi' : s >= 60 ? 'İyi' : s >= 40 ? 'Orta' : s >= 20 ? 'Düşük' : 'Çok Düşük';
+
+const DIVERS_COLOR = (s) =>
+  s >= 80 ? '#48cfad' : s >= 60 ? '#a3d977' : s >= 40 ? '#ffd166' : s >= 20 ? '#fd9644' : '#fc5c65';
+
+const LABELS = {
+  HS:    "Hisse Senedi (TL)",
+  YHS:   "Yabancı Hisse Senedi",
+  DT:    "Devlet Tahvili",
+  FB:    "Finansman Bonosu",
+  HB:    "Hazine Bonosu",
+  OST:   "Özel Sektör Tahvili",
+  OSKS:  "Özel Sektör Kira Sertifikaları",
+  TR:    "Ters-Repo",
+  VMTL:  "Mevduat (TL)",
+  VDM:   "Varlığa Dayalı Menkul Kıymetler",
+  VMD:   "Mevduat (Döviz)",
+  VİNT:  "Vadeli İşlemler Nakit Teminatları",
+  "VİNT": "Vadeli İşlemler Nakit Teminatları",
+  TPP:   "Takasbank Para Piyasası",
+  BPP:   "Borsa İstanbul Para Piyasası",
+  BYF:   "Borsa Yatırım Fonları Katılma Payları",
+  YBYF:  "Yabancı Borsa Yatırım Fonları",
+  YYF:   "Yatırım Fonları Katılma Payları",
+  D:     "Diğer",
+  KM:    "Kıymetli Madenler",
+  KMBYF: "Kıymetlı Madenler Cinsinden BYF",
+  KMKKS: "Kıymetli Madenler Cinsinden İhraç Edilen Kamu Kira Sertifikaları",
+  KHD:   "Katılma Hesabı (Döviz)",
+  KİBD:  "Döviz Cinsi Kamu İç Borçlanma Araçları",
+  KHTL:  "Katılma Hesabı (TL)",
+  KKSTL: "Kamu Kira Sertifikaları (TL)",
+  BTAS:  "BIST Taahhütlü İşlem Pazarı Satım",
+  GYY:   "Gayrimenkul Yatırımları",
+  GSYY:  "Girişim Sermayesi Yatırımları",
+  GSYKB: "Girişim Sermayesi Yatırım Fonları Katılma Payları",
+  GYKB:  "Gayrimenkul Yatırım Fonları Katılma Payları",
+  KBA:   "Kamu Dış Borçlanma Araçları",
+  ACT:   "Altın",
+  SB:    "Serbest Bırakılan",
+  YBOSB: "Yabancı Özel Sektör Borçlanma Araçları",
+  BTAA:  "BİST Taahhütlü İşlem Pazarı Alım",
+  GAS:   "Gayrı Menkul Sertifikası",
+  KHAU:  "Katılma Hesabı (Altın)",
+  KKSD:  "Kamu Kira Sertifikaları (Döviz)",
+  KKSYD: "Kamu Yurt Dışı Kira Sertifikaları",
+  KMKBA: "Kıymetli Madenler Cinsinden İhraç Edilen Kamu Borçlanma Araçları",
+  R:     "Repo",
+  VMAU:  "Mevduat (Altın)",
+  YBKB:  "Yabancı Kamu Borçlanma Araçları",
+  ÖKSYD: "Özel Sektör Yurt Dışı Kira Sertifikaları",
+  ÖSDB: "Özel Sektör Dış Borçlanma Araçları"
+};
+
+const PALETTE = [
+  "#6c63ff","#48cfad","#f7b731","#fc5c65","#45aaf2","#fd9644",
+  "#a55eea","#2bcbba","#eb3b5a","#20bf6b","#3867d6","#f7b731",
+  "#fa8231","#8854d0","#0fb9b1","#778ca3","#4b6584","#a5b1c2",
+  "#d1d8e0","#778ca3",
+];
+
+async function loadData() {
+  const [fl, fa] = await Promise.all([
+    fetch('fundlist.json').then(r => r.json()),
+    fetch('funds_allocation.json').then(r => r.json()),
+  ]);
+  fundList = fl.funds || [];
+  allocations = fa;
+}
+
+// ─── Search ──────────────────────────────────────────────────────────────────
+const searchInput = document.getElementById('searchInput');
+const dropdown = document.getElementById('dropdown');
+
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 1) { closeDropdown(); return; }
+  const results = fundList.filter(f =>
+    f.fundCode.toLowerCase().includes(q) ||
+    f.fundName.toLowerCase().includes(q)
+  ).slice(0, 40);
+  renderDropdown(results);
+});
+
+searchInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDropdown();
+});
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) closeDropdown();
+});
+
+function renderDropdown(results) {
+  if (results.length === 0) {
+    dropdown.innerHTML = '<div class="dropdown-empty">Sonuç bulunamadı.</div>';
+  } else {
+    dropdown.innerHTML = results.map(f => `
+      <div class="dropdown-item" data-code="${f.fundCode}">
+        <span class="code">${f.fundCode}</span>
+        <span class="name">${f.fundName}</span>
+        <span class="type">${f.fundType}</span>
+      </div>
+    `).join('');
+    dropdown.querySelectorAll('.dropdown-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const code = el.dataset.code;
+        const fund = fundList.find(f => f.fundCode === code);
+        if (fund) addFund(fund);
+        closeDropdown();
+        searchInput.value = '';
+      });
+    });
+  }
+  dropdown.classList.add('open');
+}
+
+function closeDropdown() {
+  dropdown.classList.remove('open');
+}
+
+// ─── Mode toggle ─────────────────────────────────────────────────────────────
+document.getElementById('btnPct').addEventListener('click', () => setMode('pct'));
+document.getElementById('btnTl').addEventListener('click', () => setMode('tl'));
+
+function setMode(mode) {
+  inputMode = mode;
+  document.getElementById('btnPct').classList.toggle('active', mode === 'pct');
+  document.getElementById('btnTl').classList.toggle('active', mode === 'tl');
+  renderPortfolio();
+}
+
+// ─── Portfolio ────────────────────────────────────────────────────────────────
+function addFund(fund) {
+  if (portfolio.find(p => p.code === fund.fundCode)) return;
+  portfolio.push({ code: fund.fundCode, name: fund.fundName, type: fund.fundType, value: '' });
+  renderPortfolio();
+}
+
+function removeFund(code) {
+  portfolio = portfolio.filter(p => p.code !== code);
+  renderPortfolio();
+}
+
+// Returns normalized weight (0-100) for each portfolio item based on current mode
+function getWeights() {
+  if (inputMode === 'pct') {
+    const total = portfolio.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
+    return portfolio.map(p => ({ code: p.code, weight: parseFloat(p.value) || 0, total }));
+  } else {
+    const total = portfolio.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
+    return portfolio.map(p => ({
+      code: p.code,
+      weight: total > 0 ? ((parseFloat(p.value) || 0) / total * 100) : 0,
+      total
+    }));
+  }
+}
+
+function renderPortfolio() {
+  const el = document.getElementById('fundList');
+  const sumRow = document.getElementById('sumRow');
+  const sumBarTrack = document.getElementById('sumBarTrack');
+
+  if (portfolio.length === 0) {
+    el.innerHTML = '<div class="empty-hint">Henüz fon eklenmedi. Yukarıdan fon arayıp ekleyin.</div>';
+    sumRow.style.display = 'none';
+    sumBarTrack.style.display = 'none';
+    renderXray();
+    return;
+  }
+
+  const isPct = inputMode === 'pct';
+
+  el.innerHTML = portfolio.map(p => `
+    <div class="fund-row" id="row-${p.code}">
+      <span class="f-code">${p.code}</span>
+      <span class="f-name" title="${p.name}">${p.name}</span>
+      <span class="type-badge">${p.type}</span>
+      <div class="f-weight">
+        ${isPct ? '' : '<span class="weight-unit">₺</span>'}
+        <input
+          class="weight-input"
+          type="number"
+          min="0" ${isPct ? 'max="100"' : ''} step="${isPct ? '0.1' : '1'}"
+          value="${p.value}"
+          placeholder="0"
+          data-code="${p.code}"
+        />
+        ${isPct ? '<span class="weight-unit">%</span>' : ''}
+      </div>
+      <button class="remove-btn" data-code="${p.code}" title="Kaldır">✕</button>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.weight-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const code = inp.dataset.code;
+      const item = portfolio.find(p => p.code === code);
+      if (item) item.value = inp.value;
+      updateSum();
+      renderXray();
+    });
+  });
+
+  el.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', () => removeFund(btn.dataset.code));
+  });
+
+  sumRow.style.display = 'flex';
+  sumBarTrack.style.display = 'block';
+  updateSum();
+  renderXray();
+}
+
+function updateSum() {
+  const isPct = inputMode === 'pct';
+  const total = portfolio.reduce((s, p) => s + (parseFloat(p.value) || 0), 0);
+  const sv = document.getElementById('sumValue');
+  const fill = document.getElementById('sumBarFill');
+  const label = document.getElementById('sumLabel');
+
+  if (isPct) {
+    label.textContent = 'Toplam Oran';
+    sv.textContent = `%${total.toFixed(1)}`;
+    sv.className = 'sum-value ' + (Math.abs(total - 100) < 0.01 ? 'sum-ok' : 'sum-warn');
+    fill.style.width = Math.min(total, 100) + '%';
+    fill.style.background = Math.abs(total - 100) < 0.01 ? 'var(--accent2)' : 'var(--warning)';
+  } else {
+    label.textContent = 'Toplam Tutar';
+    sv.textContent = '₺' + total.toLocaleString('tr-TR', { maximumFractionDigits: 2 });
+    sv.className = 'sum-value ' + (total > 0 ? 'sum-ok' : 'sum-warn');
+    fill.style.width = '100%';
+    fill.style.background = total > 0 ? 'var(--accent2)' : 'var(--border)';
+  }
+}
+
+// ─── X-Ray ───────────────────────────────────────────────────────────────────
+let chartInstance = null;
+let chartViewMode = 'doughnut'; // 'doughnut' | 'treemap'
+
+document.getElementById('btnDoughnut').addEventListener('click', () => {
+  chartViewMode = 'doughnut';
+  document.getElementById('btnDoughnut').classList.add('active');
+  document.getElementById('btnTreemap').classList.remove('active');
+  renderXray();
+});
+document.getElementById('btnTreemap').addEventListener('click', () => {
+  chartViewMode = 'treemap';
+  document.getElementById('btnTreemap').classList.add('active');
+  document.getElementById('btnDoughnut').classList.remove('active');
+  renderXray();
+});
+
+function renderXray() {
+  const content = document.getElementById('xrayContent');
+  const weights = getWeights();
+  const totalRaw = weights.reduce((s, w) => s + w.weight, 0);
+
+  if (portfolio.length === 0 || totalRaw <= 0) {
+    content.innerHTML = '<div class="no-data">Fon ekleyip oran girdikçe sonuçlar burada görünecek.</div>';
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+    return;
+  }
+
+  // Aggregate — weights are already normalized 0-100, sum to 100
+  const agg = {};
+  for (const { code, weight } of weights) {
+    if (weight <= 0) continue;
+    const alloc = allocations[code];
+    if (!alloc || !alloc.dagilim) continue;
+    for (const [asset, pct] of Object.entries(alloc.dagilim)) {
+      if (!agg[asset]) agg[asset] = 0;
+      agg[asset] += (weight / totalRaw) * pct;
+    }
+  }
+
+  // Sort by value desc
+  const sorted = Object.entries(agg)
+    .filter(([, v]) => v > 0.01)
+    .sort((a, b) => b[1] - a[1]);
+
+  if (sorted.length === 0) {
+    content.innerHTML = '<div class="no-data">Seçili fonlar için dağılım verisi bulunamadı.</div>';
+    return;
+  }
+
+  // Build UI
+  const totalTl = inputMode === 'tl'
+    ? portfolio.reduce((s, p) => s + (parseFloat(p.value) || 0), 0)
+    : null;
+
+  const labels = sorted.map(([k]) => LABELS[k] || k);
+  const values = sorted.map(([, v]) => v);
+  const colors = sorted.map((_, i) => PALETTE[i % PALETTE.length]);
+
+  // Warn if any fund has no allocation data
+  const missingFunds = portfolio.filter(p => {
+    const w = parseFloat(p.value) || 0;
+    return w > 0 && (!allocations[p.code] || !allocations[p.code].dagilim || Object.keys(allocations[p.code].dagilim).length === 0);
+  });
+
+  // Detect leveraged funds (dagilim sum > 101)
+  const leveragedFunds = portfolio.filter(p => {
+    const w = parseFloat(p.value) || 0;
+    if (w <= 0) return false;
+    const alloc = allocations[p.code];
+    if (!alloc?.dagilim) return false;
+    return Object.values(alloc.dagilim).reduce((s, v) => s + v, 0) > 101;
+  });
+
+  const xrayTotal = Object.values(agg).reduce((s, v) => s + v, 0);
+
+  const warnHtml = [
+    missingFunds.length ? `
+      <div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.82rem;color:var(--warning);">
+        ⚠ Şu fonlar için dağılım verisi yok: ${missingFunds.map(f => f.code).join(', ')}
+      </div>` : '',
+    leveragedFunds.length ? `
+      <div style="background:rgba(252,92,101,0.08);border:1px solid rgba(252,92,101,0.3);border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:0.82rem;color:#fc5c65;">
+        ⚡ Kaldıraçlı fon içeriyor: ${leveragedFunds.map(f => f.code).join(', ')} — dağılım toplamı %100'ü aşabilir (şu an %${xrayTotal.toFixed(1)})
+      </div>` : '',
+  ].join('');
+
+  // Date info
+  const dates = portfolio
+    .filter(p => allocations[p.code]?.tarih)
+    .map(p => allocations[p.code].tarih);
+  const dateHtml = dates.length ? `<div style="font-size:0.75rem;color:var(--muted);margin-bottom:14px;">Veri tarihi: ${[...new Set(dates)].join(', ')}</div>` : '';
+
+  const maxVal = values[0];
+  const isTreemap = chartViewMode === 'treemap';
+
+  // Weighted portfolio risk score
+  let riskNum = 0, riskDenom = 0;
+  for (const [asset, pct] of sorted) {
+    const r = userRiskScores[asset] ?? 4;
+    riskNum += pct * r;
+    riskDenom += pct;
+  }
+  const portfolioRisk = riskDenom > 0 ? riskNum / riskDenom : null;
+  const riskColor = portfolioRisk ? getRiskColor(portfolioRisk) : 'var(--muted)';
+  const riskLabel = portfolioRisk ? RISK_LABELS[Math.round(portfolioRisk)] || '' : '';
+
+  const riskBarHtml = portfolioRisk ? `
+    <div class="risk-score-bar">
+      <span class="risk-score-label">Risk Skoru</span>
+      <div class="risk-track">
+        <div class="risk-fill" style="width:${(portfolioRisk/7)*100}%;background:${riskColor}"></div>
+      </div>
+      <span class="risk-score-val" style="color:${riskColor}">${portfolioRisk.toFixed(2)} <span style="font-size:0.72rem;font-weight:400;color:var(--muted)">${riskLabel}</span></span>
+    </div>
+  ` : '';
+
+  // Currency breakdown
+  const currencyTotals = { tl: 0, fx: 0, gold: 0, mixed: 0 };
+  for (const [asset, pct] of sorted) {
+    const cat = ASSET_CURRENCY[asset] ?? 'mixed';
+    currencyTotals[cat] += pct;
+  }
+  const currencySum = Object.values(currencyTotals).reduce((a, b) => a + b, 0);
+  const currencyBarHtml = currencySum > 0 ? `
+    <div class="risk-score-bar" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="risk-score-label">Para Birimi Dağılımı</span>
+        <div style="display:flex;gap:12px">
+          ${Object.entries(currencyTotals).filter(([,v])=>v>0.1).map(([k,v])=>`
+            <span style="font-size:0.78rem;font-weight:600;color:${CURRENCY_META[k].color}">
+              ${CURRENCY_META[k].label} %${(v/currencySum*100).toFixed(1)}
+            </span>
+          `).join('')}
+        </div>
+      </div>
+      <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;gap:1px">
+        ${Object.entries(currencyTotals).filter(([,v])=>v>0.1).map(([k,v])=>`
+          <div style="flex:${v};background:${CURRENCY_META[k].color};transition:flex 0.4s" title="${CURRENCY_META[k].label}: %${(v/currencySum*100).toFixed(1)}"></div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Asset category breakdown
+  const catTotals = {};
+  for (const [asset, pct] of sorted) {
+    const cat = ASSET_CATEGORY[asset] ?? 'mixed';
+    catTotals[cat] = (catTotals[cat] || 0) + pct;
+  }
+  const catSum = Object.values(catTotals).reduce((a, b) => a + b, 0);
+  // Sort by value desc
+  const catSorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+
+  const categoryBarHtml = catSum > 0 ? `
+    <div class="risk-score-bar" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <span class="risk-score-label">Varlık Kategorisi</span>
+        <div style="display:flex;flex-wrap:wrap;gap:10px">
+          ${catSorted.filter(([,v])=>v>0.1).map(([k,v])=>`
+            <span style="font-size:0.78rem;font-weight:600;color:${CATEGORY_META[k].color}">
+              ${CATEGORY_META[k].label} %${(v/catSum*100).toFixed(1)}
+            </span>
+          `).join('')}
+        </div>
+      </div>
+      <div style="height:8px;border-radius:4px;overflow:hidden;display:flex;gap:1px">
+        ${catSorted.filter(([,v])=>v>0.1).map(([k,v])=>`
+          <div style="flex:${v};background:${CATEGORY_META[k].color};transition:flex 0.4s" title="${CATEGORY_META[k].label}: %${(v/catSum*100).toFixed(1)}"></div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Diversification score
+  const div = calcDiversificationScore(sorted, userRiskScores);
+  const diversBarHtml = div ? (() => {
+    const color = DIVERS_COLOR(div.score);
+    const label = DIVERS_LABEL(div.score);
+    return `
+    <div class="risk-score-bar" style="flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="risk-score-label">Çeşitlendirme Skoru</span>
+        <div style="display:flex;gap:14px;align-items:center">
+          <span style="font-size:0.72rem;color:var(--muted)" title="Portföyde kaç farklı varlık sınıfı etkisi var">⊞ ${div.effectiveN} efektif sınıf</span>
+          <span style="font-size:0.72rem;color:var(--muted)" title="Varlık sınıfı dağılımı">Varlık ${div.asset}</span>
+          <span style="font-size:0.72rem;color:var(--muted)" title="Para birimi dağılımı">Para ${div.curr}</span>
+          <span style="font-size:0.72rem;color:var(--muted)" title="Risk seviyesi dağılımı">Risk ${div.risk}</span>
+          <span style="font-size:0.88rem;font-weight:700;color:${color}">${div.score} <span style="font-size:0.72rem;font-weight:400;color:var(--muted)">${label}</span></span>
+        </div>
+      </div>
+      <div class="risk-track">
+        <div class="risk-fill" style="width:${div.score}%;background:${color}"></div>
+      </div>
+    </div>`;
+  })() : '';
+
+  content.innerHTML = `
+    ${riskBarHtml}
+    ${categoryBarHtml}
+    ${currencyBarHtml}
+    ${diversBarHtml}
+    ${warnHtml}
+    ${dateHtml}
+    <div class="${isTreemap ? '' : 'xray-grid'}">
+      <div class="chart-wrap" style="${isTreemap ? 'height:340px;margin-bottom:20px' : ''}">
+        <canvas id="xrayChart"></canvas>
+      </div>
+      <div style="overflow-y:auto;max-height:${isTreemap ? '300px' : '300px'}">
+        <table class="asset-table">
+          <thead>
+            <tr>
+              <th>Varlık Sınıfı</th>
+              <th style="text-align:center">Risk</th>
+              <th style="text-align:center">Para</th>
+              <th>Oran${totalTl ? ' / Tutar' : ''}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map(([k, v], i) => {
+              const tlStr = totalTl
+                ? `<div style="font-size:0.75rem;color:var(--muted);margin-top:2px">₺${(totalTl * v / 100).toLocaleString('tr-TR',{maximumFractionDigits:0})}</div>`
+                : '';
+              const riskVal = userRiskScores[k] ?? null;
+              const riskBadge = riskVal
+                ? `<span class="risk-badge" style="background:${RISK_COLORS[riskVal]}" title="${RISK_LABELS[riskVal]}">${riskVal}</span>`
+                : `<span style="color:var(--muted);font-size:0.75rem">—</span>`;
+              const curr = ASSET_CURRENCY[k];
+              const cat  = ASSET_CATEGORY[k];
+              const currBadge = curr
+                ? `<div style="font-size:0.7rem;font-weight:700;color:${CURRENCY_META[curr].color}">${CURRENCY_META[curr].label}</div>`
+                : '';
+              const catBadge = cat
+                ? `<div style="font-size:0.68rem;color:${CATEGORY_META[cat].color};margin-top:1px">${CATEGORY_META[cat].label}</div>`
+                : '';
+              const combinedBadge = (currBadge || catBadge)
+                ? `<div style="line-height:1.3">${currBadge}${catBadge}</div>`
+                : `<span style="color:var(--muted);font-size:0.75rem">—</span>`;
+              return `
+              <tr>
+                <td>
+                  <div class="asset-name-cell">
+                    <span class="asset-dot" style="background:${colors[i]}"></span>
+                    ${LABELS[k] || k}
+                  </div>
+                  <div style="margin-top:3px">
+                    <span class="bar-mini" style="width:${Math.round((v/maxVal)*120)}px;background:${colors[i]};opacity:0.6"></span>
+                  </div>
+                </td>
+                <td style="text-align:center">${riskBadge}</td>
+                <td style="text-align:center">${combinedBadge}</td>
+                <td>
+                  <div>%${v.toFixed(2)}</div>
+                  ${tlStr}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Draw chart
+  if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  const ctx = document.getElementById('xrayChart').getContext('2d');
+
+  if (chartViewMode === 'treemap') {
+    chartInstance = new Chart(ctx, {
+      type: 'treemap',
+      data: {
+        datasets: [{
+          label: 'Portföy X-Ray',
+          tree: sorted.map(([k, v], i) => ({ label: LABELS[k] || k, key: k, value: v, ci: i })),
+          key: 'value',
+          backgroundColor(c) {
+            if (c.type !== 'data') return 'transparent';
+            return colors[c.raw._data.ci % colors.length];
+          },
+          borderColor: '#0f1117',
+          borderWidth: 2,
+          labels: {
+            display: true,
+            color: '#fff',
+            font: [{ size: 12, weight: 'bold' }, { size: 10 }],
+            hoverColor: '#fff',
+            formatter(c) {
+              const d = c.raw._data;
+              const tlStr = totalTl ? `  ₺${(totalTl * d.value / 100).toLocaleString('tr-TR', { maximumFractionDigits: 0 })}` : '';
+              return d.value >= 3
+                ? [d.label, `%${d.value.toFixed(1)}${tlStr}`]
+                : [`%${d.value.toFixed(1)}`];
+            }
+          }
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title(items) {
+                return items[0]?.raw._data?.label || '';
+              },
+              label(c) {
+                const d = c.raw._data;
+                const pct = `%${d.value.toFixed(2)}`;
+                if (totalTl) {
+                  const tl = (totalTl * d.value / 100).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+                  return `${pct}  (₺${tl})`;
+                }
+                return pct;
+              }
+            }
+          }
+        }
+      }
+    });
+  } else {
+    chartInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: colors,
+          borderColor: '#0f1117',
+          borderWidth: 2,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        cutout: '58%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label(c) {
+                const pct = ` %${c.parsed.toFixed(2)}`;
+                if (totalTl) {
+                  const tl = (totalTl * c.parsed / 100).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+                  return `${pct}  (₺${tl})`;
+                }
+                return pct;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+}
+
+// ─── Risk Modal ──────────────────────────────────────────────────────────────
+const riskModal = document.getElementById('riskModal');
+
+document.getElementById('btnRiskSettings').addEventListener('click', () => {
+  renderRiskPanel();
+  riskModal.classList.add('open');
+});
+document.getElementById('btnCloseRisk').addEventListener('click', () => riskModal.classList.remove('open'));
+riskModal.addEventListener('click', e => { if (e.target === riskModal) riskModal.classList.remove('open'); });
+document.getElementById('btnResetAllRisk').addEventListener('click', () => {
+  userRiskScores = { ...ASSET_RISK_SCORES };
+  renderRiskPanel();
+  updateRiskSettingsBtn();
+  renderXray();
+});
+
+function renderRiskPanel() {
+  const body = document.getElementById('riskPanelBody');
+
+  // Group by DEFAULT risk level
+  const groups = {};
+  for (const [key, defaultScore] of Object.entries(ASSET_RISK_SCORES)) {
+    if (!groups[defaultScore]) groups[defaultScore] = [];
+    groups[defaultScore].push(key);
+  }
+
+  body.innerHTML = Object.entries(groups).sort(([a],[b]) => a-b).map(([score, keys]) => `
+    <div class="risk-group">
+      <div class="risk-group-title">
+        <span class="risk-badge" style="background:${RISK_COLORS[score]}">${score}</span>
+        Risk ${score} — ${RISK_LABELS[score]}
+      </div>
+      ${keys.map(key => {
+        const current = userRiskScores[key] ?? ASSET_RISK_SCORES[key];
+        const modified = current !== ASSET_RISK_SCORES[key];
+        return `
+        <div class="risk-row" id="rrow-${key}">
+          <span class="risk-row-key">${key}</span>
+          <span class="risk-row-name">${LABELS[key] || '—'}</span>
+          <div class="risk-pills">
+            ${[1,2,3,4,5,6,7].map(n => `
+              <button
+                class="risk-pill ${n === current ? 'active' : ''} ${modified && n === current ? 'modified-mark' : ''}"
+                style="${n === current ? `background:${RISK_COLORS[n]}` : ''}"
+                data-key="${key}" data-val="${n}"
+              >${n}</button>
+            `).join('')}
+          </div>
+          <button class="risk-row-reset ${modified ? 'visible' : ''}" data-key="${key}" title="Sıfırla">↺</button>
+        </div>`;
+      }).join('')}
+    </div>
+  `).join('');
+
+  body.querySelectorAll('.risk-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const val = parseInt(btn.dataset.val);
+      userRiskScores[key] = val;
+      renderRiskPanel();
+      updateRiskSettingsBtn();
+      renderXray();
+    });
+  });
+
+  body.querySelectorAll('.risk-row-reset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      userRiskScores[key] = ASSET_RISK_SCORES[key];
+      renderRiskPanel();
+      updateRiskSettingsBtn();
+      renderXray();
+    });
+  });
+}
+
+function updateRiskSettingsBtn() {
+  const btn = document.getElementById('btnRiskSettings');
+  btn.classList.toggle('modified', isRiskModified());
+  btn.textContent = isRiskModified() ? '⚙ Risk Ayarları ●' : '⚙ Risk Ayarları';
+}
+
+// ─── OCR Import ──────────────────────────────────────────────────────────────
+const ocrModal   = document.getElementById('ocrModal');
+const dropZone   = document.getElementById('dropZone');
+const ocrFileInput = document.getElementById('ocrFileInput');
+let ocrImageFile = null;
+let tesseractLoaded = false;
+
+document.getElementById('btnImport').addEventListener('click', () => ocrModal.classList.add('open'));
+document.getElementById('btnCloseOcr').addEventListener('click', resetOcrModal);
+ocrModal.addEventListener('click', e => { if (e.target === ocrModal) resetOcrModal(); });
+
+// Drag & drop
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleOcrFile(e.dataTransfer.files[0]); });
+ocrFileInput.addEventListener('change', () => handleOcrFile(ocrFileInput.files[0]));
+
+// Ctrl+V paste
+document.addEventListener('paste', e => {
+  if (!ocrModal.classList.contains('open')) return;
+  const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
+  if (item) handleOcrFile(item.getAsFile());
+});
+
+document.getElementById('ocrClearImg').addEventListener('click', () => {
+  ocrImageFile = null;
+  document.getElementById('ocrPreviewWrap').style.display = 'none';
+  document.getElementById('ocrResults').style.display = 'none';
+  document.getElementById('ocrProgressWrap').style.display = 'none';
+  dropZone.style.display = 'block';
+  ocrFileInput.value = '';
+});
+
+function resetOcrModal() {
+  ocrModal.classList.remove('open');
+  ocrImageFile = null;
+  document.getElementById('ocrPreviewWrap').style.display = 'none';
+  document.getElementById('ocrResults').style.display = 'none';
+  document.getElementById('ocrProgressWrap').style.display = 'none';
+  dropZone.style.display = 'block';
+  ocrFileInput.value = '';
+}
+
+function handleOcrFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  ocrImageFile = file;
+  const url = URL.createObjectURL(file);
+  document.getElementById('ocrPreviewImg').src = url;
+  document.getElementById('ocrPreviewWrap').style.display = 'block';
+  dropZone.style.display = 'none';
+  document.getElementById('ocrResults').style.display = 'none';
+  runOcr(file);
+}
+
+async function loadTesseract() {
+  if (tesseractLoaded) return;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+  tesseractLoaded = true;
+}
+
+// ─── Image Preprocessing ─────────────────────────────────────────────────────
+async function preprocessImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+
+      // 1. Upscale: minimum 1800px wide for small screenshots
+      const scale = Math.max(1, Math.min(3, 1800 / img.width));
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      // Smooth upscaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
+
+      // 2. Get pixel data
+      const imageData = ctx.getImageData(0, 0, w, h);
+      const d = imageData.data;
+
+      // 3. Detect if dark theme: sample avg luminance of corners
+      let lumaSum = 0, samples = 0;
+      const samplePoints = [
+        [0,0],[w-1,0],[0,h-1],[w-1,h-1],
+        [Math.floor(w/2),0],[Math.floor(w/2),Math.floor(h/2)]
+      ];
+      for (const [x, y] of samplePoints) {
+        const i = (y * w + x) * 4;
+        lumaSum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        samples++;
+      }
+      const isDark = (lumaSum / samples) < 100;
+
+      // 4. Convert to grayscale + optional invert + contrast stretch
+      for (let i = 0; i < d.length; i += 4) {
+        let gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        if (isDark) gray = 255 - gray;          // invert dark themes
+        // Contrast stretch: push mid-grays toward black/white
+        gray = Math.min(255, Math.max(0, (gray - 80) * (255 / 175)));
+        d[i] = d[i+1] = d[i+2] = gray;
+        d[i+3] = 255;
+      }
+
+      // 5. Simple sharpening kernel (unsharp mask lite)
+      const src = new Uint8ClampedArray(d);
+      const strength = 0.4;
+      for (let y = 1; y < h-1; y++) {
+        for (let x = 1; x < w-1; x++) {
+          const ci = (y*w+x)*4;
+          const laplacian =
+            4*src[ci] - src[ci-4] - src[ci+4]
+            - src[(y-1)*w*4+x*4] - src[(y+1)*w*4+x*4];
+          const val = Math.min(255, Math.max(0, src[ci] + strength * laplacian));
+          d[ci] = d[ci+1] = d[ci+2] = val;
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // Return as blob
+      canvas.toBlob(blob => resolve(blob), 'image/png');
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+async function runOcr(file) {
+  const progressWrap = document.getElementById('ocrProgressWrap');
+  const progressText = document.getElementById('ocrProgressText');
+  const progressFill = document.getElementById('ocrProgressFill');
+  const resultsEl   = document.getElementById('ocrResults');
+
+  progressWrap.style.display = 'block';
+  resultsEl.style.display = 'none';
+  progressText.textContent = 'Görüntü işleniyor...';
+  progressFill.style.width = '5%';
+
+  try {
+    const processedBlob = await preprocessImage(file);
+
+    // Update preview to show preprocessed image
+    const previewImg = document.getElementById('ocrPreviewImg');
+    previewImg.src = URL.createObjectURL(processedBlob);
+
+    await loadTesseract();
+    progressText.textContent = 'OCR başlatılıyor...';
+    progressFill.style.width = '15%';
+
+    const worker = await Tesseract.createWorker('tur+eng', 1, {
+      logger: m => {
+        if (m.status === 'recognizing text') {
+          const pct = 15 + Math.round(m.progress * 80);
+          progressFill.style.width = pct + '%';
+          progressText.textContent = `Metin okunuyor... %${Math.round(m.progress * 100)}`;
+        }
+      }
+    });
+
+    const { data } = await worker.recognize(processedBlob);
+    await worker.terminate();
+
+    progressFill.style.width = '100%';
+    progressText.textContent = 'Tamamlandı, eşleştiriliyor...';
+
+    const parsed = parseOcrText(data.text);
+    setTimeout(() => {
+      progressWrap.style.display = 'none';
+      renderOcrResults(parsed, data.text);
+    }, 400);
+
+  } catch (err) {
+    progressText.textContent = 'Hata: ' + (err.message || 'OCR çalıştırılamadı');
+    progressFill.style.width = '0%';
+  }
+}
+
+// ─── Turkish number parser ────────────────────────────────────────────────────
+function parseTrNumber(s) {
+  // "1.234,56" → 1234.56 | "1.234" → 1234 | "1234,56" → 1234.56
+  const clean = s.trim().replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(clean);
+  return isNaN(n) ? null : n;
+}
+
+// ─── OCR Text Parser ──────────────────────────────────────────────────────────
+function parseOcrText(text) {
+  const results = [];
+  const seen = new Set();
+
+  // Build a normalized name index for fuzzy matching
+  const normalize = s => s.toUpperCase()
+    .replace(/[ÇçĞğİıÖöŞşÜü]/g, c => ({'Ç':'C','ç':'C','Ğ':'G','ğ':'G','İ':'I','ı':'I','Ö':'O','ö':'O','Ş':'S','ş':'S','Ü':'U','ü':'U'}[c]||c))
+    .replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  const fundIndex = fundList.map(f => ({ f, norm: normalize(f.fundName) }));
+
+  // Try to find fund codes explicitly (2-4 uppercase Turkish letters as word)
+  const codeRe = /\b([A-ZÇĞİÖŞÜ0-9]{2,4})\b/g;
+  // Turkish number pattern (with optional ₺ or %)
+  const numRe = /₺?\s*([\d]{1,3}(?:[.,][\d]{3})*(?:[.,]\d{1,4})?|\d+(?:[.,]\d{1,4})?)\s*%?/g;
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 1);
+
+  for (const line of lines) {
+    const upperLine = line.toUpperCase();
+
+    // 1. Try exact fund code match
+    let matchedFund = null;
+    const codeMatches = [...upperLine.matchAll(codeRe)];
+    for (const m of codeMatches) {
+      const fund = fundList.find(f => f.fundCode === m[1]);
+      if (fund && !seen.has(fund.fundCode)) { matchedFund = fund; break; }
+    }
+
+    // 2. If no code match, try fuzzy name match (need ≥3 words overlap)
+    let fuzzyScore = 0;
+    if (!matchedFund) {
+      const lineNorm = normalize(line);
+      const lineWords = lineNorm.split(' ').filter(w => w.length > 2);
+      let bestScore = 0, bestFund = null;
+      for (const { f, norm } of fundIndex) {
+        if (seen.has(f.fundCode)) continue;
+        const matches = lineWords.filter(w => norm.includes(w)).length;
+        if (matches >= 2 && matches > bestScore) { bestScore = matches; bestFund = f; }
+      }
+      if (bestFund) { matchedFund = bestFund; fuzzyScore = bestScore; }
+    }
+
+    // 3. Extract value(s) from the line
+    const nums = [];
+    let m;
+    numRe.lastIndex = 0;
+    while ((m = numRe.exec(line)) !== null) {
+      const n = parseTrNumber(m[1]);
+      if (n !== null && n > 0) nums.push(n);
+    }
+
+    const hasTl  = /₺/.test(line);
+    const hasPct = /%/.test(line);
+    const valueType = hasPct ? 'pct' : 'tl';
+    // Pick most likely value: if pct, prefer values < 100; else prefer larger value
+    let value = null;
+    if (nums.length) {
+      value = valueType === 'pct'
+        ? (nums.find(n => n <= 100) ?? nums[0])
+        : Math.max(...nums);
+    }
+
+    if (matchedFund || nums.length) {
+      const confidence = matchedFund
+        ? (fuzzyScore === 0 ? 'high' : fuzzyScore >= 3 ? 'medium' : 'low')
+        : 'none';
+      if (matchedFund) seen.add(matchedFund.fundCode);
+      results.push({ fund: matchedFund, value, valueType, confidence, line });
+    }
+  }
+
+  return results;
+}
+
+// ─── OCR Results Renderer ─────────────────────────────────────────────────────
+function renderOcrResults(items, rawText) {
+  const el = document.getElementById('ocrResults');
+  el.style.display = 'block';
+
+  const matched   = items.filter(r => r.fund);
+  const unmatched = items.filter(r => !r.fund && r.value !== null);
+
+  const modeUnit = inputMode === 'pct' ? '%' : '₺';
+
+  if (matched.length === 0 && unmatched.length === 0) {
+    el.innerHTML = `
+      <div style="color:var(--warning);font-size:0.85rem;padding:12px 0;text-align:center">
+        ⚠ Fon bulunamadı. Görüntü kalitesini kontrol edin ya da manuel ekleyin.
+      </div>`;
+    return;
+  }
+
+  const confLabel = { high: '✓', medium: '~', low: '?' };
+  const confClass = { high: '', medium: 'low', low: 'low' };
+
+  el.innerHTML = `
+    <div class="ocr-results-title">
+      <span>${matched.length} fon eşleşti${unmatched.length ? `, ${unmatched.length} satır eşleşmedi` : ''}</span>
+      <span style="font-size:0.7rem;color:var(--muted)">Değerleri düzenleyebilirsiniz</span>
+    </div>
+    ${matched.map((r, i) => `
+      <div class="ocr-result-row">
+        <input type="checkbox" class="ocr-cb" data-idx="${i}" checked />
+        <span class="ocr-result-code">${r.fund.fundCode}</span>
+        <span class="ocr-result-name" title="${r.fund.fundName}">${r.fund.fundName}</span>
+        <span class="ocr-result-conf ${confClass[r.confidence]}" title="Güven: ${r.confidence}">${confLabel[r.confidence]}</span>
+        <input class="ocr-result-val" type="number" data-idx="${i}" min="0" step="0.01"
+          value="${r.value !== null ? r.value : ''}" placeholder="—" />
+        <span class="ocr-result-unit">${modeUnit}</span>
+      </div>
+    `).join('')}
+    ${unmatched.length ? `
+      <div style="font-size:0.75rem;color:var(--muted);margin:10px 0 6px;padding-top:10px;border-top:1px solid var(--border)">
+        Eşleşmeyen satırlar (manuel ekleyin):
+      </div>
+      ${unmatched.map(r => `
+        <div class="ocr-result-row no-match">
+          <span class="ocr-result-code unmatched">?</span>
+          <span class="ocr-result-name unmatched">${r.line.substring(0, 60)}</span>
+          <span class="ocr-result-val" style="color:var(--muted);font-size:0.78rem">${r.value ?? '—'}</span>
+          <span class="ocr-result-unit">${modeUnit}</span>
+        </div>
+      `).join('')}
+    ` : ''}
+    <button class="ocr-add-btn" id="ocrAddBtn">Seçilileri Portföye Ekle</button>
+  `;
+
+  el.querySelector('#ocrAddBtn').addEventListener('click', () => {
+    const checkboxes = el.querySelectorAll('.ocr-cb');
+    checkboxes.forEach(cb => {
+      if (!cb.checked) return;
+      const idx = parseInt(cb.dataset.idx);
+      const r = matched[idx];
+      const valInput = el.querySelector(`.ocr-result-val[data-idx="${idx}"]`);
+      const val = valInput ? valInput.value : '';
+      if (!portfolio.find(p => p.code === r.fund.fundCode)) {
+        portfolio.push({ code: r.fund.fundCode, name: r.fund.fundName, type: r.fund.fundType, value: val });
+      } else {
+        const existing = portfolio.find(p => p.code === r.fund.fundCode);
+        if (val) existing.value = val;
+      }
+    });
+    renderPortfolio();
+    resetOcrModal();
+  });
+}
+
+// ─── IndexedDB ────────────────────────────────────────────────────────────────
+const DB_NAME = 'fonXray';
+const DB_VERSION = 1;
+const STORE_NAME = 'portfolios';
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function dbSave(name) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const req = tx.objectStore(STORE_NAME).add({
+      name,
+      savedAt: new Date().toISOString(),
+      inputMode,
+      funds: portfolio.map(p => ({ ...p })),
+    });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function dbGetAll() {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function dbDelete(id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+// ─── Save UI ──────────────────────────────────────────────────────────────────
+const saveArea = document.getElementById('saveArea');
+const portfolioNameInput = document.getElementById('portfolioNameInput');
+
+document.getElementById('btnSavePortfolio').addEventListener('click', async () => {
+  const open = saveArea.style.display === 'block';
+  saveArea.style.display = open ? 'none' : 'block';
+  if (!open) {
+    const items = await dbGetAll().catch(() => []);
+    portfolioNameInput.value = `Portföy ${items.length + 1}`;
+    portfolioNameInput.focus();
+    portfolioNameInput.select();
+  }
+});
+
+document.getElementById('btnCancelSave').addEventListener('click', () => {
+  saveArea.style.display = 'none';
+  portfolioNameInput.value = '';
+});
+
+portfolioNameInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmSave();
+  if (e.key === 'Escape') {
+    saveArea.style.display = 'none';
+    portfolioNameInput.value = '';
+  }
+});
+
+document.getElementById('btnConfirmSave').addEventListener('click', confirmSave);
+
+async function confirmSave() {
+  const name = portfolioNameInput.value.trim();
+  if (!name) { portfolioNameInput.focus(); return; }
+  if (portfolio.length === 0) return;
+  try {
+    await dbSave(name);
+    portfolioNameInput.value = '';
+    saveArea.style.display = 'none';
+    const btn = document.getElementById('btnSavePortfolio');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Kaydedildi';
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch (e) {
+    alert('Kaydetme hatası: ' + e.message);
+  }
+}
+
+// ─── Load UI ──────────────────────────────────────────────────────────────────
+const loadModal = document.getElementById('loadModal');
+
+document.getElementById('btnLoadPortfolio').addEventListener('click', async () => {
+  await renderLoadModal();
+  loadModal.classList.add('open');
+});
+document.getElementById('btnCloseLoad').addEventListener('click', () => loadModal.classList.remove('open'));
+loadModal.addEventListener('click', e => { if (e.target === loadModal) loadModal.classList.remove('open'); });
+
+async function renderLoadModal() {
+  const body = document.getElementById('loadModalBody');
+  body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px;font-size:0.88rem">Yükleniyor...</div>';
+  try {
+    const items = (await dbGetAll()).sort((a, b) => b.id - a.id);
+    if (items.length === 0) {
+      body.innerHTML = '<div style="color:var(--muted);text-align:center;padding:32px;font-size:0.88rem">Henüz kaydedilmiş portföy yok.</div>';
+      return;
+    }
+    body.innerHTML = items.map(item => `
+      <div class="saved-portfolio-row">
+        <div class="saved-portfolio-info">
+          <div class="saved-portfolio-name">${item.name}</div>
+          <div class="saved-portfolio-meta">
+            ${item.funds.length} fon &middot;
+            ${item.inputMode === 'pct' ? '% Oran' : '₺ Tutar'} &middot;
+            ${new Date(item.savedAt).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="load-btn" data-id="${item.id}">Yükle</button>
+          <button class="delete-btn" data-id="${item.id}" title="Sil">🗑</button>
+        </div>
+      </div>
+    `).join('');
+
+    body.querySelectorAll('.load-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = items.find(i => i.id === parseInt(btn.dataset.id));
+        if (!item) return;
+        portfolio = item.funds.map(f => ({ ...f }));
+        setMode(item.inputMode);
+        loadModal.classList.remove('open');
+      });
+    });
+
+    body.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        await dbDelete(parseInt(btn.dataset.id));
+        await renderLoadModal();
+      });
+    });
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--danger);padding:16px;font-size:0.88rem">Hata: ${e.message}</div>`;
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadData().catch(() => {
+  document.getElementById('searchInput').placeholder = 'Veri yüklenemedi. Sunucu üzerinden açın (python -m http.server)';
+  document.getElementById('searchInput').disabled = true;
+});
+</script>
+</body>
+</html>
